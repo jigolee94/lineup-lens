@@ -109,8 +109,7 @@ export default function HomePage() {
         <div className="hero__badge">Festival discovery web app</div>
         <h1>Lineup Lens</h1>
         <p>
-          페스티벌 라인업 스크린샷을 올리고, 모르는 DJ를 빠르게 훑어보세요. 지금은 Vercel 배포용 demo/mock
-          버전입니다.
+          페스티벌 라인업 스크린샷을 올리면 OCR로 DJ 이름을 뽑고, 유튜브 추천 링크와 장르 태그를 빠르게 정리합니다.
         </p>
       </section>
 
@@ -135,7 +134,7 @@ export default function HomePage() {
             placeholder={'예: Peggy Gou\nFred again..\nCharlotte de Witte'}
             rows={4}
           />
-          <small>OCR 연결 전에도 여기 이름을 넣으면 그 이름 기준으로 카드가 만들어집니다.</small>
+          <small>이미지 인식이 잘 안 되면 여기에 DJ 이름을 직접 넣어 보완할 수 있습니다.</small>
         </label>
 
         <div className="button-row">
@@ -181,7 +180,7 @@ export default function HomePage() {
         ) : (
           <div className="empty-state">
             <h2>{activeTab === 'saved' ? '아직 저장한 DJ가 없어요.' : '아직 분석 결과가 없어요.'}</h2>
-            <p>{activeTab === 'saved' ? '마음에 드는 DJ 카드에서 Save를 눌러보세요.' : 'demo lineup을 먼저 실행해보세요.'}</p>
+            <p>{activeTab === 'saved' ? '마음에 드는 DJ 카드에서 Save를 눌러보세요.' : '스크린샷을 올리거나 demo lineup을 먼저 실행해보세요.'}</p>
           </div>
         )}
       </section>

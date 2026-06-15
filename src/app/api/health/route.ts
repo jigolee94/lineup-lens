@@ -12,7 +12,8 @@ export async function GET() {
     providers: {
       youtube: Boolean(process.env.YOUTUBE_API_KEY),
       lastfm: Boolean(process.env.LASTFM_API_KEY),
-      openaiVision: Boolean(process.env.OPENAI_API_KEY)
+      openaiVision: Boolean(process.env.OPENAI_API_KEY),
+      openaiVisionModel: process.env.OPENAI_VISION_MODEL || 'gpt-5.5'
     }
   });
 }

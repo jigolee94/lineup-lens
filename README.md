@@ -1,10 +1,10 @@
 # Lineup Lens - Vercel Web App
 
-페스티벌 라인업/타임테이블 스크린샷을 올리면 DJ 카드와 추천 유튜브 링크를 보여주는 웹앱 MVP입니다.
+페스티벌 라인업/타임테이블 스크린샷을 올리면 OCR로 DJ 이름을 뽑고, DJ 카드와 추천 YouTube 링크를 보여주는 웹앱 MVP입니다.
 
 현재 버전은 **Vercel에 바로 배포 가능한 Next.js 단일 프로젝트**입니다.
 
-> 중요한 현재 상태: 진짜 OCR 이미지 분석은 아직 연결하지 않았습니다. 이미지 업로드 흐름은 만들어져 있고, 기본적으로 demo/mock DJ 데이터를 반환합니다. YouTube API 키를 넣으면 demo DJ 이름 기준으로 실제 YouTube 검색 결과를 가져올 수 있습니다.
+> 기본값은 demo/mock mode입니다. `USE_MOCKS=false`, `OPENAI_API_KEY`, `YOUTUBE_API_KEY`를 Vercel 환경변수에 넣으면 실제 OCR + YouTube 검색 흐름으로 작동합니다.
 
 ---
 
@@ -12,7 +12,9 @@
 
 - 모바일 웹에 맞는 Lineup Lens UI
 - 라인업 스크린샷 업로드 화면
+- OpenAI Vision 기반 OCR / 아티스트 이름 추출
 - `Use Demo Lineup` 버튼
+- DJ 이름 직접 입력 fallback
 - DJ 카드 목록
 - DJ별 장르 태그
 - DJ별 설명
@@ -42,6 +44,7 @@ lineup-lens-vercel/
       types.ts                      # 공통 타입
       demoData.ts                   # mock DJ 데이터
       artistUtils.ts                # 이름 정리/중복 제거
+      openaiVision.ts               # OpenAI Vision OCR provider
       youtube.ts                    # YouTube API provider
       lastfm.ts                     # Last.fm provider
   public/
@@ -51,6 +54,7 @@ lineup-lens-vercel/
   next.config.mjs
   package.json
   tsconfig.json
+  vercel.json
 ```
 
 ---
@@ -60,13 +64,11 @@ lineup-lens-vercel/
 ### 3-1. 압축 풀기
 
 ```bash
-unzip lineup-lens-vercel.zip
+unzip lineup-lens-vercel-ocr.zip
 cd lineup-lens-vercel
 ```
 
 ### 3-2. 패키지 설치
-
-npm으로 실행하는 기준입니다.
 
 ```bash
 npm install
@@ -82,9 +84,10 @@ cp .env.example .env.local
 
 ```env
 USE_MOCKS=true
+OPENAI_API_KEY=
+OPENAI_VISION_MODEL=gpt-5.5
 YOUTUBE_API_KEY=
 LASTFM_API_KEY=
-OPENAI_API_KEY=
 ```
 
 ### 3-4. 개발 서버 실행
@@ -124,7 +127,61 @@ http://localhost:3000
 
 ---
 
-## 6. YouTube API 연결하기
+## 6. OCR 기능 켜기
+
+OCR 기능은 OpenAI API 키가 필요합니다.
+
+### 로컬 개발
+
+`.env.local` 파일에 넣습니다.
+
+```env
+USE_MOCKS=false
+OPENAI_API_KEY=여기에_OpenAI_API키
+OPENAI_VISION_MODEL=gpt-5.5
+YOUTUBE_API_KEY=
+LASTFM_API_KEY=
+```
+
+그다음 개발 서버를 다시 켭니다.
+
+```bash
+npm run dev
+```
+
+### Vercel 배포 환경
+
+Vercel 프로젝트에서:
+
+```txt
+Settings
+→ Environment Variables
+→ Add New
+```
+
+아래처럼 추가합니다.
+
+```txt
+USE_MOCKS=false
+OPENAI_API_KEY=여기에_OpenAI_API키
+OPENAI_VISION_MODEL=gpt-5.5
+```
+
+저장 후 다시 Deploy 해야 반영됩니다.
+
+### OCR 작동 방식
+
+1. 사용자가 라인업 이미지를 업로드합니다.
+2. `/api/analyze-lineup` 서버 route가 이미지를 받습니다.
+3. 서버가 이미지를 base64 data URL로 바꿉니다.
+4. OpenAI Vision 모델에 “DJ/아티스트 이름만 JSON으로 뽑아줘”라고 요청합니다.
+5. 결과 JSON을 파싱해서 DJ 카드로 만듭니다.
+
+이미지 파일은 8MB 이하만 받도록 제한했습니다.
+
+---
+
+## 7. YouTube API 연결하기
 
 YouTube API 키를 만들었다면 두 곳 중 하나에 넣으면 됩니다.
 
@@ -134,9 +191,9 @@ YouTube API 키를 만들었다면 두 곳 중 하나에 넣으면 됩니다.
 
 ```env
 USE_MOCKS=false
+OPENAI_API_KEY=여기에_OpenAI_API키
 YOUTUBE_API_KEY=여기에_유튜브_API키
 LASTFM_API_KEY=
-OPENAI_API_KEY=
 ```
 
 그다음 개발 서버를 다시 켭니다.
@@ -164,9 +221,11 @@ YOUTUBE_API_KEY=여기에_유튜브_API키
 
 저장 후 다시 Deploy 해야 반영됩니다.
 
+> 주의: API 키를 소스코드에 직접 넣지 마세요. `.env.local` 또는 Vercel Environment Variables에만 넣으세요.
+
 ---
 
-## 7. Last.fm API 연결하기
+## 8. Last.fm API 연결하기
 
 Last.fm API 키가 있으면 장르 태그 보강에 사용할 수 있습니다.
 
@@ -178,40 +237,29 @@ LASTFM_API_KEY=여기에_Lastfm_API키
 
 ---
 
-## 8. 지금 안 되는 것
+## 9. 현재 한계
 
-아직 실제 OCR/이미지 분석은 연결하지 않았습니다.
-
-현재는 이미지를 업로드해도 아래 demo DJ들을 기준으로 결과를 반환합니다.
-
-- Peggy Gou
-- Fred again..
-- Charlotte de Witte
-- Four Tet
-- Joris Voorn
-
-다음 단계에서 연결할 수 있는 기능:
-
-1. OpenAI Vision으로 스크린샷에서 DJ 이름 추출
-2. Google Vision OCR로 텍스트 추출
-3. 추출된 DJ 이름으로 YouTube 자동 검색
-4. 검색 결과 캐싱
-5. 페스티벌별 저장 기능
-6. 사용자 계정/로그인
+- OCR 결과는 이미지 품질에 따라 틀릴 수 있습니다.
+- 포스터 디자인이 복잡하거나 폰트가 매우 장식적이면 잘못 뽑을 수 있습니다.
+- DJ 이름과 일반 문구를 100% 구분하지 못할 수 있습니다.
+- YouTube 검색 결과는 공식 트랙이 아니라 DJ set / live set 위주로 잡힐 수 있습니다.
+- 현재 재생은 YouTube 링크 열기 방식입니다.
+- 로그인/계정 기능은 없습니다.
 
 ---
 
-## 9. API 안전수칙
+## 10. API 안전수칙
 
 - `.env.local`은 GitHub에 올리지 마세요.
 - API 키는 프론트엔드 코드에 직접 쓰지 마세요.
 - 이 프로젝트는 API 키를 서버 route에서만 읽습니다.
 - YouTube 영상을 다운로드하거나 오디오만 추출하지 않습니다.
-- 현재 재생은 YouTube 링크 열기 방식입니다.
+- 채팅방, GitHub issue, README 등에 실제 API 키를 붙여넣지 마세요.
+- 키가 노출됐으면 Google Cloud/OpenAI 대시보드에서 삭제하고 새 키를 만드세요.
 
 ---
 
-## 10. 확인용 API
+## 11. 확인용 API
 
 배포 후 아래 주소를 열어보면 API 상태를 확인할 수 있습니다.
 
@@ -225,6 +273,27 @@ https://내-vercel-주소.vercel.app/api/health
 {
   "ok": true,
   "app": "Lineup Lens",
-  "mode": "mock"
+  "mode": "provider",
+  "providers": {
+    "youtube": true,
+    "lastfm": false,
+    "openaiVision": true,
+    "openaiVisionModel": "gpt-5.5"
+  }
 }
 ```
+
+---
+
+## 12. 추천 환경변수 세팅
+
+Vercel에서 최소로 이렇게 넣으면 됩니다.
+
+```txt
+USE_MOCKS=false
+OPENAI_API_KEY=본인_OpenAI_API키
+OPENAI_VISION_MODEL=gpt-5.5
+YOUTUBE_API_KEY=본인_YouTube_API키
+```
+
+Last.fm은 나중에 넣어도 됩니다.
