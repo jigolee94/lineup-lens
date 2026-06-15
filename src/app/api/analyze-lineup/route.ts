@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { dedupeArtistNames, searchUrl } from '@/lib/artistUtils';
 import { demoArtists, getDemoAnalyzeResponse } from '@/lib/demoData';
 import { getLastFmProfile } from '@/lib/lastfm';
-import { extractArtistsWithOpenAIVision } from '@/lib/openaiVision';
+import { extractArtistsFromOcrText } from '@/lib/ocrTextParser';
 import type { AnalyzedArtist, AnalyzeLineupResponse, ExtractedArtist } from '@/lib/types';
 import { getYouTubeRecommendations } from '@/lib/youtube';
 
@@ -12,7 +12,7 @@ export const maxDuration = 30;
 type FormFields = {
   demoRequested: boolean;
   artistNames: string[];
-  image: File | null;
+  ocrText: string | null;
 };
 
 function parseArtistNames(raw: string | null): string[] {
@@ -32,6 +32,7 @@ async function readFormFields(request: Request): Promise<FormFields> {
     const body = (await request.json().catch(() => ({}))) as {
       demo?: boolean;
       artistNames?: string[] | string;
+      ocrText?: string;
     };
 
     const rawArtistNames = Array.isArray(body.artistNames)
@@ -41,19 +42,19 @@ async function readFormFields(request: Request): Promise<FormFields> {
     return {
       demoRequested: body.demo === true,
       artistNames: parseArtistNames(rawArtistNames),
-      image: null
+      ocrText: typeof body.ocrText === 'string' ? body.ocrText : null
     };
   }
 
   const formData = await request.formData();
-  const image = formData.get('image');
   const demo = formData.get('demo');
   const artistNames = formData.get('artistNames');
+  const ocrText = formData.get('ocrText');
 
   return {
     demoRequested: demo === 'true',
     artistNames: parseArtistNames(typeof artistNames === 'string' ? artistNames : null),
-    image: image instanceof File && image.size > 0 ? image : null
+    ocrText: typeof ocrText === 'string' ? ocrText : null
   };
 }
 
@@ -76,7 +77,7 @@ function fallbackProfileFor(name: string): AnalyzedArtist['profile'] {
 function extractedFromNames(names: string[]): ExtractedArtist[] {
   return names.map((name) => ({
     name,
-    confidence: 0.9,
+    confidence: 0.95,
     rawTextMatch: name,
     stage: null,
     time: null
@@ -140,58 +141,42 @@ export async function POST(request: Request) {
   const warnings: string[] = [];
 
   try {
-    const { demoRequested, artistNames, image } = await readFormFields(request);
-    const useMocks = process.env.USE_MOCKS !== 'false';
+    const { demoRequested, artistNames, ocrText } = await readFormFields(request);
+    const useMocks = process.env.USE_MOCKS === 'true';
     const manualArtists = extractedFromNames(artistNames);
+    const ocrArtists = ocrText ? extractArtistsFromOcrText(ocrText) : [];
 
     if (demoRequested) {
       return NextResponse.json(getDemoAnalyzeResponse(warnings));
     }
 
     if (useMocks) {
-      if (image) {
-        warnings.push('Image upload was received, but USE_MOCKS=true. Returning demo results. Set USE_MOCKS=false and OPENAI_API_KEY to enable OCR.');
-      }
-      if (manualArtists.length > 0) {
-        return NextResponse.json(await buildResponseForExtractedArtists(manualArtists, warnings));
+      warnings.push('Demo/mock mode is active. Set USE_MOCKS=false to use free browser OCR results.');
+      const mergedDemoArtists = mergeExtractedArtists(manualArtists, ocrArtists);
+      if (mergedDemoArtists.length > 0) {
+        return NextResponse.json(await buildResponseForExtractedArtists(mergedDemoArtists, warnings));
       }
       return NextResponse.json(getDemoAnalyzeResponse(warnings));
     }
 
-    let visionFestivalName: string | null = null;
-    let visionArtists: ExtractedArtist[] = [];
+    const mergedArtists = mergeExtractedArtists(manualArtists, ocrArtists);
 
-    if (image) {
-      const visionResult = await extractArtistsWithOpenAIVision(image, warnings);
-      visionFestivalName = visionResult?.festivalName ?? null;
-      visionArtists = visionResult?.artists ?? [];
+    if (ocrText && ocrArtists.length === 0) {
+      warnings.push('Free OCR ran, but no likely artist names were detected. Try a cleaner screenshot or paste DJ names manually.');
     }
-
-    const mergedArtists = mergeExtractedArtists(manualArtists, visionArtists);
 
     if (mergedArtists.length > 0) {
-      return NextResponse.json(await buildResponseForExtractedArtists(mergedArtists, warnings, visionFestivalName));
-    }
-
-    if (image) {
-      warnings.push('No artist names were extracted from the image. Try a clearer screenshot or paste DJ names manually.');
-      return NextResponse.json(
-        {
-          festivalName: visionFestivalName,
-          artists: [],
-          warnings
-        },
-        { status: 422 }
-      );
+      warnings.push('Free OCR is running locally in your browser using Tesseract.js. Accuracy may vary depending on the lineup image.');
+      return NextResponse.json(await buildResponseForExtractedArtists(mergedArtists, warnings));
     }
 
     return NextResponse.json(
       {
         festivalName: null,
         artists: [],
-        warnings: ['No image or artist names were provided.']
+        warnings: ['No artist names were found. Upload a clearer lineup image or paste DJ names manually.']
       },
-      { status: 400 }
+      { status: 422 }
     );
   } catch (error) {
     return NextResponse.json(

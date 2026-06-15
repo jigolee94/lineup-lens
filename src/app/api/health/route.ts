@@ -3,17 +3,16 @@ import { NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 
 export async function GET() {
-  const mockMode = process.env.USE_MOCKS !== 'false';
+  const mockMode = process.env.USE_MOCKS === 'true';
 
   return NextResponse.json({
     ok: true,
     app: 'Lineup Lens',
-    mode: mockMode ? 'mock' : 'provider',
+    mode: mockMode ? 'mock' : 'free-ocr',
     providers: {
+      browserOcr: 'tesseract.js',
       youtube: Boolean(process.env.YOUTUBE_API_KEY),
-      lastfm: Boolean(process.env.LASTFM_API_KEY),
-      openaiVision: Boolean(process.env.OPENAI_API_KEY),
-      openaiVisionModel: process.env.OPENAI_VISION_MODEL || 'gpt-5.5'
+      lastfm: Boolean(process.env.LASTFM_API_KEY)
     }
   });
 }

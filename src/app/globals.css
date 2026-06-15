@@ -471,3 +471,42 @@ a {
     font-size: 25px;
   }
 }
+
+
+.ocr-preview {
+  margin-top: 16px;
+  padding: 16px 18px;
+}
+
+.ocr-preview__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.ocr-preview__top h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.ocr-preview__top span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ocr-preview pre {
+  margin: 0;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--muted);
+  line-height: 1.5;
+}
