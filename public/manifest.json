@@ -1,0 +1,16 @@
+{
+  "name": "Lineup Lens",
+  "short_name": "Lineup Lens",
+  "description": "Discover DJs from a festival lineup screenshot.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#10111f",
+  "theme_color": "#10111f",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
