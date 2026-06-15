@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { dedupeArtistNames, searchUrl } from '@/lib/artistUtils';
 import { demoArtists, getDemoAnalyzeResponse } from '@/lib/demoData';
 import { getLastFmProfile } from '@/lib/lastfm';
-import { extractArtistsWithOpenAIVision } from '@/lib/openaiVision';
-import type { AnalyzedArtist, AnalyzeLineupResponse, ExtractedArtist } from '@/lib/types';
+import { extractArtistNamesFromImage } from '@/lib/ocr';
+import type { AnalyzedArtist, AnalyzeLineupResponse } from '@/lib/types';
 import { getYouTubeRecommendations } from '@/lib/youtube';
 
 export const runtime = 'nodejs';
@@ -12,7 +12,7 @@ export const maxDuration = 30;
 type FormFields = {
   demoRequested: boolean;
   artistNames: string[];
-  image: File | null;
+  imageFile: File | null;
 };
 
 function parseArtistNames(raw: string | null): string[] {
@@ -41,7 +41,7 @@ async function readFormFields(request: Request): Promise<FormFields> {
     return {
       demoRequested: body.demo === true,
       artistNames: parseArtistNames(rawArtistNames),
-      image: null
+      imageFile: null
     };
   }
 
@@ -53,7 +53,7 @@ async function readFormFields(request: Request): Promise<FormFields> {
   return {
     demoRequested: demo === 'true',
     artistNames: parseArtistNames(typeof artistNames === 'string' ? artistNames : null),
-    image: image instanceof File && image.size > 0 ? image : null
+    imageFile: image instanceof File && image.size > 0 ? image : null
   };
 }
 
@@ -73,50 +73,33 @@ function fallbackProfileFor(name: string): AnalyzedArtist['profile'] {
   };
 }
 
-function extractedFromNames(names: string[]): ExtractedArtist[] {
-  return names.map((name) => ({
-    name,
-    confidence: 0.9,
-    rawTextMatch: name,
-    stage: null,
-    time: null
-  }));
+async function resolveArtistNamesFromInput(
+  artistNames: string[],
+  imageFile: File | null,
+  warnings: string[]
+): Promise<string[]> {
+  if (!imageFile) return artistNames;
+
+  const ocrNames = await extractArtistNamesFromImage(imageFile, warnings);
+  return dedupeArtistNames([...artistNames, ...ocrNames]).slice(0, 30);
 }
 
-function mergeExtractedArtists(...groups: ExtractedArtist[][]): ExtractedArtist[] {
-  const seen = new Set<string>();
-  const output: ExtractedArtist[] = [];
-
-  for (const group of groups) {
-    for (const artist of group) {
-      const key = artist.name.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      output.push(artist);
-    }
-  }
-
-  return output.slice(0, 30);
-}
-
-async function buildResponseForExtractedArtists(
-  extractedArtists: ExtractedArtist[],
-  warnings: string[],
-  festivalName: string | null = null
+async function buildResponseForArtistNames(
+  artistNames: string[],
+  warnings: string[]
 ): Promise<AnalyzeLineupResponse> {
   const artists: AnalyzedArtist[] = [];
 
-  for (const extracted of extractedArtists.slice(0, 30)) {
-    const name = extracted.name;
+  for (const name of artistNames.slice(0, 30)) {
     const fallbackProfile = fallbackProfileFor(name);
     const lastFmProfile = await getLastFmProfile(name, warnings);
     const recommendations = await getYouTubeRecommendations(name, warnings);
 
     artists.push({
       name,
-      confidence: extracted.confidence,
-      stage: extracted.stage ?? null,
-      time: extracted.time ?? null,
+      confidence: 0.9,
+      stage: null,
+      time: null,
       profile: {
         ...fallbackProfile,
         description: lastFmProfile?.description ?? fallbackProfile.description,
@@ -130,7 +113,7 @@ async function buildResponseForExtractedArtists(
   }
 
   return {
-    festivalName,
+    festivalName: null,
     artists,
     warnings
   };
@@ -140,49 +123,21 @@ export async function POST(request: Request) {
   const warnings: string[] = [];
 
   try {
-    const { demoRequested, artistNames, image } = await readFormFields(request);
+    const { demoRequested, artistNames, imageFile } = await readFormFields(request);
     const useMocks = process.env.USE_MOCKS !== 'false';
-    const manualArtists = extractedFromNames(artistNames);
 
     if (demoRequested) {
       return NextResponse.json(getDemoAnalyzeResponse(warnings));
     }
 
+    const resolvedArtistNames = await resolveArtistNamesFromInput(artistNames, imageFile, warnings);
+
+    if (resolvedArtistNames.length > 0) {
+      return NextResponse.json(await buildResponseForArtistNames(resolvedArtistNames, warnings));
+    }
+
     if (useMocks) {
-      if (image) {
-        warnings.push('Image upload was received, but USE_MOCKS=true. Returning demo results. Set USE_MOCKS=false and OPENAI_API_KEY to enable OCR.');
-      }
-      if (manualArtists.length > 0) {
-        return NextResponse.json(await buildResponseForExtractedArtists(manualArtists, warnings));
-      }
       return NextResponse.json(getDemoAnalyzeResponse(warnings));
-    }
-
-    let visionFestivalName: string | null = null;
-    let visionArtists: ExtractedArtist[] = [];
-
-    if (image) {
-      const visionResult = await extractArtistsWithOpenAIVision(image, warnings);
-      visionFestivalName = visionResult?.festivalName ?? null;
-      visionArtists = visionResult?.artists ?? [];
-    }
-
-    const mergedArtists = mergeExtractedArtists(manualArtists, visionArtists);
-
-    if (mergedArtists.length > 0) {
-      return NextResponse.json(await buildResponseForExtractedArtists(mergedArtists, warnings, visionFestivalName));
-    }
-
-    if (image) {
-      warnings.push('No artist names were extracted from the image. Try a clearer screenshot or paste DJ names manually.');
-      return NextResponse.json(
-        {
-          festivalName: visionFestivalName,
-          artists: [],
-          warnings
-        },
-        { status: 422 }
-      );
     }
 
     return NextResponse.json(

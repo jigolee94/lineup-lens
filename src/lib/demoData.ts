@@ -113,7 +113,7 @@ export function getDemoAnalyzeResponse(warnings: string[] = []): AnalyzeLineupRe
     festivalName: 'Demo Festival',
     artists: demoArtists,
     warnings: [
-      'Demo/mock mode is active. Real screenshot OCR is not connected yet.',
+      'Demo/mock mode is active. Upload a readable lineup image or paste artist names to analyze real DJs.',
       ...warnings
     ]
   };
