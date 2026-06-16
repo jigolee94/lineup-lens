@@ -1,6 +1,15 @@
+import { roughNameMatchScore } from './artistUtils';
+
 export type LastFmProfile = {
   genres: string[];
   description: string | null;
+};
+
+export type LastFmArtistSearchMatch = {
+  name: string;
+  url: string | null;
+  listeners: number | null;
+  matchScore: number;
 };
 
 type LastFmTopTagsResponse = {
@@ -21,8 +30,68 @@ type LastFmArtistInfoResponse = {
   message?: string;
 };
 
+type LastFmArtistSearchResponse = {
+  results?: {
+    artistmatches?: {
+      artist?: Array<{
+        name?: string;
+        url?: string;
+        listeners?: string;
+      }>;
+    };
+  };
+  error?: number;
+  message?: string;
+};
+
 function stripHtml(input: string): string {
   return input.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function parseListeners(value: string | undefined): number | null {
+  if (!value) return null;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+export async function searchLastFmArtist(
+  artistName: string,
+  warnings: string[]
+): Promise<LastFmArtistSearchMatch | null> {
+  const apiKey = process.env.LASTFM_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const url = new URL('https://ws.audioscrobbler.com/2.0/');
+    url.searchParams.set('method', 'artist.search');
+    url.searchParams.set('artist', artistName);
+    url.searchParams.set('api_key', apiKey);
+    url.searchParams.set('format', 'json');
+    url.searchParams.set('limit', '5');
+
+    const response = await fetch(url);
+    const data = (await response.json()) as LastFmArtistSearchResponse;
+
+    if (!response.ok || data.error) {
+      warnings.push(data.message ?? `Last.fm artist search failed for ${artistName}.`);
+      return null;
+    }
+
+    const ranked = (data.results?.artistmatches?.artist ?? [])
+      .map((artist) => ({
+        name: artist.name ?? '',
+        url: artist.url ?? null,
+        listeners: parseListeners(artist.listeners),
+        matchScore: roughNameMatchScore(artistName, artist.name ?? '')
+      }))
+      .filter((artist) => artist.name && artist.matchScore >= 0.55)
+      .sort((a, b) => b.matchScore + Math.log10((b.listeners ?? 0) + 1) / 10 - (a.matchScore + Math.log10((a.listeners ?? 0) + 1) / 10));
+
+    return ranked[0] ?? null;
+  } catch (error) {
+    warnings.push(`Last.fm search error for ${artistName}: ${error instanceof Error ? error.message : 'Unknown error'}.`);
+    return null;
+  }
 }
 
 export async function getLastFmProfile(
@@ -46,8 +115,8 @@ export async function getLastFmProfile(
     infoUrl.searchParams.set('format', 'json');
 
     const [tagsResponse, infoResponse] = await Promise.all([
-      fetch(tagsUrl, { next: { revalidate: 60 * 60 * 24 * 7 } }),
-      fetch(infoUrl, { next: { revalidate: 60 * 60 * 24 * 7 } })
+      fetch(tagsUrl),
+      fetch(infoUrl)
     ]);
 
     const tagsData = (await tagsResponse.json()) as LastFmTopTagsResponse;

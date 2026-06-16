@@ -26,6 +26,15 @@ export const demoArtists: AnalyzedArtist[] = [
     confidence: 0.98,
     stage: 'Main Stage',
     time: '22:00',
+    verification: {
+      status: 'confirmed',
+      score: 98,
+      sources: ['manual', 'musicbrainz'],
+      reasons: ['Demo artist used for local testing.', 'Music database verification would treat this as a confirmed artist.'],
+      matchedName: 'Peggy Gou',
+      musicBrainzId: null,
+      lastFmUrl: null
+    },
     profile: {
       description: 'Korean electronic artist known for bright, stylish house and club-focused tracks.',
       genres: ['House', 'Tech House', 'Electronic'],
@@ -43,6 +52,15 @@ export const demoArtists: AnalyzedArtist[] = [
     confidence: 0.95,
     stage: 'Live Stage',
     time: '23:30',
+    verification: {
+      status: 'confirmed',
+      score: 96,
+      sources: ['manual', 'musicbrainz'],
+      reasons: ['Demo artist used for local testing.', 'Music database verification would treat this as a confirmed artist.'],
+      matchedName: 'Fred again..',
+      musicBrainzId: null,
+      lastFmUrl: null
+    },
     profile: {
       description: 'UK producer and live electronic act blending emotional samples, house, pop, and rave energy.',
       genres: ['Electronic', 'House', 'UK Garage'],
@@ -60,6 +78,15 @@ export const demoArtists: AnalyzedArtist[] = [
     confidence: 0.96,
     stage: 'Warehouse',
     time: '01:00',
+    verification: {
+      status: 'confirmed',
+      score: 97,
+      sources: ['manual', 'musicbrainz'],
+      reasons: ['Demo artist used for local testing.', 'Music database verification would treat this as a confirmed artist.'],
+      matchedName: 'Charlotte de Witte',
+      musicBrainzId: null,
+      lastFmUrl: null
+    },
     profile: {
       description: 'Belgian DJ and producer associated with driving peak-time techno and dark club sets.',
       genres: ['Techno', 'Acid Techno', 'Peak Time'],
@@ -77,6 +104,15 @@ export const demoArtists: AnalyzedArtist[] = [
     confidence: 0.92,
     stage: 'Garden',
     time: '20:30',
+    verification: {
+      status: 'confirmed',
+      score: 94,
+      sources: ['manual', 'musicbrainz'],
+      reasons: ['Demo artist used for local testing.', 'Music database verification would treat this as a confirmed artist.'],
+      matchedName: 'Four Tet',
+      musicBrainzId: null,
+      lastFmUrl: null
+    },
     profile: {
       description: 'UK electronic musician/DJ known for genre-blending sets across house, garage, ambient, and experimental sounds.',
       genres: ['Electronic', 'House', 'Experimental'],
@@ -94,6 +130,15 @@ export const demoArtists: AnalyzedArtist[] = [
     confidence: 0.93,
     stage: 'Sunset Stage',
     time: '19:00',
+    verification: {
+      status: 'confirmed',
+      score: 94,
+      sources: ['manual', 'musicbrainz'],
+      reasons: ['Demo artist used for local testing.', 'Music database verification would treat this as a confirmed artist.'],
+      matchedName: 'Joris Voorn',
+      musicBrainzId: null,
+      lastFmUrl: null
+    },
     profile: {
       description: 'Dutch DJ/producer known for melodic house, techno, and polished festival-friendly sets.',
       genres: ['Melodic House', 'Techno', 'Progressive House'],

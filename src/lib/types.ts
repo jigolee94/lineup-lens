@@ -21,6 +21,22 @@ export type Recommendation = {
   channelTitle: string | null;
 };
 
+export type CandidateSource = 'ocr' | 'manual' | 'demo';
+
+export type VerificationStatus = 'confirmed' | 'review';
+
+export type VerificationSource = 'manual' | 'musicbrainz' | 'lastfm' | 'heuristic';
+
+export type ArtistVerification = {
+  status: VerificationStatus;
+  score: number;
+  sources: VerificationSource[];
+  reasons: string[];
+  matchedName?: string | null;
+  musicBrainzId?: string | null;
+  lastFmUrl?: string | null;
+};
+
 export type AnalyzedArtist = {
   name: string;
   confidence: number;
@@ -28,11 +44,14 @@ export type AnalyzedArtist = {
   time: string | null;
   profile: ArtistProfile;
   recommendations: Recommendation[];
+  verification?: ArtistVerification;
 };
 
 export type AnalyzeLineupResponse = {
   festivalName: string | null;
   artists: AnalyzedArtist[];
+  reviewArtists?: AnalyzedArtist[];
+  rejectedCandidates?: string[];
   warnings: string[];
 };
 
@@ -42,4 +61,9 @@ export type ExtractedArtist = {
   rawTextMatch?: string;
   stage?: string | null;
   time?: string | null;
+  source?: CandidateSource;
+};
+
+export type VerifiedArtistCandidate = ExtractedArtist & {
+  verification: ArtistVerification;
 };

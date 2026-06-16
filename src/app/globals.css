@@ -510,3 +510,125 @@ a {
   color: var(--muted);
   line-height: 1.5;
 }
+
+.result-section {
+  margin-top: 18px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 14px;
+  padding: 0 4px;
+}
+
+.section-heading h2 {
+  margin: 0;
+  font-size: 24px;
+  letter-spacing: -0.04em;
+}
+
+.section-heading > span {
+  padding: 8px 12px;
+  border: 1px solid rgba(120, 240, 214, 0.35);
+  border-radius: 999px;
+  background: rgba(120, 240, 214, 0.1);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.section-heading--review > span {
+  border-color: rgba(255, 217, 154, 0.42);
+  background: rgba(255, 217, 154, 0.09);
+  color: #ffd99a;
+}
+
+.dj-card--review {
+  border-color: rgba(255, 217, 154, 0.32);
+  background: rgba(255, 217, 154, 0.065);
+}
+
+.verification {
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid rgba(120, 240, 214, 0.26);
+  border-radius: 16px;
+  background: rgba(120, 240, 214, 0.07);
+}
+
+.verification--review {
+  border-color: rgba(255, 217, 154, 0.32);
+  background: rgba(255, 217, 154, 0.08);
+}
+
+.verification__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.verification__top strong {
+  color: var(--accent);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.verification--review .verification__top strong {
+  color: #ffd99a;
+}
+
+.verification__top span,
+.verification p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.verification p {
+  margin: 0;
+}
+
+.rejected {
+  margin-top: 18px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.052);
+}
+
+.rejected h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+}
+
+.rejected p {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+
+.rejected div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rejected span {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.16);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

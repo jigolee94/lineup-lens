@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { dedupeArtistNames, searchUrl } from '@/lib/artistUtils';
+import { verifyArtistCandidates } from '@/lib/artistVerification';
 import { demoArtists, getDemoAnalyzeResponse } from '@/lib/demoData';
 import { getLastFmProfile } from '@/lib/lastfm';
 import { extractArtistsFromOcrText } from '@/lib/ocrTextParser';
-import type { AnalyzedArtist, AnalyzeLineupResponse, ExtractedArtist } from '@/lib/types';
+import type { AnalyzedArtist, AnalyzeLineupResponse, ExtractedArtist, VerifiedArtistCandidate } from '@/lib/types';
 import { getYouTubeRecommendations } from '@/lib/youtube';
 
 export const runtime = 'nodejs';
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 type FormFields = {
   demoRequested: boolean;
@@ -77,10 +78,11 @@ function fallbackProfileFor(name: string): AnalyzedArtist['profile'] {
 function extractedFromNames(names: string[]): ExtractedArtist[] {
   return names.map((name) => ({
     name,
-    confidence: 0.95,
+    confidence: 0.98,
     rawTextMatch: name,
     stage: null,
-    time: null
+    time: null,
+    source: 'manual'
   }));
 }
 
@@ -100,24 +102,24 @@ function mergeExtractedArtists(...groups: ExtractedArtist[][]): ExtractedArtist[
   return output.slice(0, 30);
 }
 
-async function buildResponseForExtractedArtists(
-  extractedArtists: ExtractedArtist[],
-  warnings: string[],
-  festivalName: string | null = null
-): Promise<AnalyzeLineupResponse> {
+async function buildAnalyzedArtists(
+  verifiedArtists: VerifiedArtistCandidate[],
+  warnings: string[]
+): Promise<AnalyzedArtist[]> {
   const artists: AnalyzedArtist[] = [];
 
-  for (const extracted of extractedArtists.slice(0, 30)) {
-    const name = extracted.name;
+  for (const verified of verifiedArtists) {
+    const name = verified.name;
     const fallbackProfile = fallbackProfileFor(name);
     const lastFmProfile = await getLastFmProfile(name, warnings);
     const recommendations = await getYouTubeRecommendations(name, warnings);
 
     artists.push({
       name,
-      confidence: extracted.confidence,
-      stage: extracted.stage ?? null,
-      time: extracted.time ?? null,
+      confidence: verified.confidence,
+      stage: verified.stage ?? null,
+      time: verified.time ?? null,
+      verification: verified.verification,
       profile: {
         ...fallbackProfile,
         description: lastFmProfile?.description ?? fallbackProfile.description,
@@ -130,11 +132,7 @@ async function buildResponseForExtractedArtists(
     });
   }
 
-  return {
-    festivalName,
-    artists,
-    warnings
-  };
+  return artists;
 }
 
 export async function POST(request: Request) {
@@ -151,10 +149,17 @@ export async function POST(request: Request) {
     }
 
     if (useMocks) {
-      warnings.push('Demo/mock mode is active. Set USE_MOCKS=false to use free browser OCR results.');
+      warnings.push('Demo/mock mode is active. Set USE_MOCKS=false to use free browser OCR and database verification.');
       const mergedDemoArtists = mergeExtractedArtists(manualArtists, ocrArtists);
       if (mergedDemoArtists.length > 0) {
-        return NextResponse.json(await buildResponseForExtractedArtists(mergedDemoArtists, warnings));
+        const verified = await verifyArtistCandidates(mergedDemoArtists, warnings);
+        return NextResponse.json({
+          festivalName: null,
+          artists: await buildAnalyzedArtists(verified.confirmed, warnings),
+          reviewArtists: await buildAnalyzedArtists(verified.review, warnings),
+          rejectedCandidates: verified.rejectedCandidates,
+          warnings
+        } satisfies AnalyzeLineupResponse);
       }
       return NextResponse.json(getDemoAnalyzeResponse(warnings));
     }
@@ -162,20 +167,52 @@ export async function POST(request: Request) {
     const mergedArtists = mergeExtractedArtists(manualArtists, ocrArtists);
 
     if (ocrText && ocrArtists.length === 0) {
-      warnings.push('Free OCR ran, but no likely artist names were detected. Try a cleaner screenshot or paste DJ names manually.');
+      warnings.push('Free OCR ran, but no likely artist-name candidates were detected. Try a cleaner screenshot or paste DJ names manually.');
     }
 
     if (mergedArtists.length > 0) {
-      warnings.push('Free OCR is running locally in your browser using Tesseract.js. Accuracy may vary depending on the lineup image.');
-      return NextResponse.json(await buildResponseForExtractedArtists(mergedArtists, warnings));
+      const verified = await verifyArtistCandidates(mergedArtists, warnings);
+      const confirmedArtists = await buildAnalyzedArtists(verified.confirmed, warnings);
+      const reviewArtists = await buildAnalyzedArtists(verified.review, warnings);
+
+      warnings.push('Free OCR ran in the browser. Candidates were filtered through MusicBrainz, plus Last.fm if configured.');
+      if (!process.env.LASTFM_API_KEY) {
+        warnings.push('LASTFM_API_KEY is missing, so verification uses MusicBrainz only. Add Last.fm later for better filtering.');
+      }
+
+      if (confirmedArtists.length > 0 || reviewArtists.length > 0) {
+        return NextResponse.json({
+          festivalName: null,
+          artists: confirmedArtists,
+          reviewArtists,
+          rejectedCandidates: verified.rejectedCandidates,
+          warnings
+        } satisfies AnalyzeLineupResponse);
+      }
+
+      return NextResponse.json(
+        {
+          festivalName: null,
+          artists: [],
+          reviewArtists: [],
+          rejectedCandidates: verified.rejectedCandidates,
+          warnings: [
+            'OCR found text, but none of the candidates passed the music database verification filter.',
+            ...warnings
+          ]
+        } satisfies AnalyzeLineupResponse,
+        { status: 422 }
+      );
     }
 
     return NextResponse.json(
       {
         festivalName: null,
         artists: [],
+        reviewArtists: [],
+        rejectedCandidates: [],
         warnings: ['No artist names were found. Upload a clearer lineup image or paste DJ names manually.']
-      },
+      } satisfies AnalyzeLineupResponse,
       { status: 422 }
     );
   } catch (error) {
@@ -183,8 +220,10 @@ export async function POST(request: Request) {
       {
         festivalName: null,
         artists: [],
+        reviewArtists: [],
+        rejectedCandidates: [],
         warnings: [error instanceof Error ? error.message : 'Unknown server error.']
-      },
+      } satisfies AnalyzeLineupResponse,
       { status: 500 }
     );
   }

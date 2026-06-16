@@ -8,11 +8,12 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     app: 'Lineup Lens',
-    mode: mockMode ? 'mock' : 'free-ocr',
+    mode: mockMode ? 'mock' : 'free-ocr-with-db-verification',
     providers: {
       browserOcr: 'tesseract.js',
-      youtube: Boolean(process.env.YOUTUBE_API_KEY),
-      lastfm: Boolean(process.env.LASTFM_API_KEY)
+      musicBrainz: true,
+      lastfm: Boolean(process.env.LASTFM_API_KEY),
+      youtube: Boolean(process.env.YOUTUBE_API_KEY)
     }
   });
 }

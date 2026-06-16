@@ -39,6 +39,29 @@ async function runFreeOcrInBrowser(
   return result.data.text ?? '';
 }
 
+function Cards({
+  artists,
+  savedNames,
+  onToggleSave
+}: {
+  artists: AnalyzedArtist[];
+  savedNames: Set<string>;
+  onToggleSave: (artist: AnalyzedArtist) => void;
+}) {
+  return (
+    <section className="cards-grid">
+      {artists.map((artist) => (
+        <DjCard
+          artist={artist}
+          isSaved={savedNames.has(artist.name.toLowerCase())}
+          onToggleSave={onToggleSave}
+          key={artist.name}
+        />
+      ))}
+    </section>
+  );
+}
+
 export default function HomePage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -70,6 +93,10 @@ export default function HomePage() {
     () => new Set(savedArtists.map((artist) => artist.name.toLowerCase())),
     [savedArtists]
   );
+
+  const confirmedArtists = response?.artists ?? [];
+  const reviewArtists = response?.reviewArtists ?? [];
+  const rejectedCandidates = response?.rejectedCandidates ?? [];
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
@@ -106,7 +133,7 @@ export default function HomePage() {
       if (artistNamesText.trim()) formData.append('artistNames', artistNamesText.trim());
       if (freeOcrText.trim()) formData.append('ocrText', freeOcrText.trim());
 
-      setLoadingStep('Finding DJs');
+      setLoadingStep('Checking music databases');
       const res = await fetch('/api/analyze-lineup', {
         method: 'POST',
         body: formData
@@ -129,16 +156,14 @@ export default function HomePage() {
     }
   }
 
-  const currentArtists = activeTab === 'saved' ? savedArtists : response?.artists ?? [];
-
   return (
     <main className="app-shell">
       <section className="hero">
-        <div className="hero__badge">Free browser OCR + DJ discovery</div>
+        <div className="hero__badge">Free OCR + music DB verification</div>
         <h1>Lineup Lens</h1>
         <p>
-          페스티벌 라인업 스크린샷을 올리면 <strong>무료 OCR</strong>이 브라우저 안에서 돌아가고, DJ 이름 후보를 뽑아서
-          유튜브 추천 링크와 장르 태그를 빠르게 정리합니다.
+          페스티벌 라인업 스크린샷을 올리면 <strong>무료 OCR</strong>로 텍스트를 읽고, MusicBrainz/Last.fm 검증 점수를
+          통과한 이름만 DJ 후보로 보여줍니다.
         </p>
       </section>
 
@@ -147,7 +172,7 @@ export default function HomePage() {
           <input type="file" accept="image/*" onChange={handleFileChange} />
           <span className="upload-box__icon">＋</span>
           <strong>{selectedFile ? selectedFile.name : '라인업 스크린샷 선택'}</strong>
-          <small>무료 OCR은 브라우저에서 실행됩니다. 작은 글씨 이미지는 정확도가 떨어질 수 있어요.</small>
+          <small>OCR 후 음악 DB 검증을 거쳐 DJ 이름이 아닌 텍스트를 최대한 걸러냅니다.</small>
         </label>
 
         {previewUrl ? (
@@ -163,7 +188,7 @@ export default function HomePage() {
             placeholder={`예: Peggy Gou\nFred again..\nCharlotte de Witte`}
             rows={4}
           />
-          <small>OCR이 잘 안 읽으면 여기에 DJ 이름을 붙여넣어서 보완할 수 있습니다.</small>
+          <small>직접 입력한 이름은 확정 DJ로 처리됩니다. OCR이 놓친 이름을 보완할 때 쓰세요.</small>
         </label>
 
         <div className="button-row">
@@ -203,34 +228,70 @@ export default function HomePage() {
 
       <section className="tabs">
         <button className={activeTab === 'results' ? 'tab tab--active' : 'tab'} onClick={() => setActiveTab('results')}>
-          Results {response?.artists?.length ? `(${response.artists.length})` : ''}
+          Results {confirmedArtists.length + reviewArtists.length ? `(${confirmedArtists.length + reviewArtists.length})` : ''}
         </button>
         <button className={activeTab === 'saved' ? 'tab tab--active' : 'tab'} onClick={() => setActiveTab('saved')}>
           Saved {savedArtists.length ? `(${savedArtists.length})` : ''}
         </button>
       </section>
 
-      <section className="cards-grid">
-        {currentArtists.length > 0 ? (
-          currentArtists.map((artist) => (
-            <DjCard
-              artist={artist}
-              isSaved={savedNames.has(artist.name.toLowerCase())}
-              onToggleSave={toggleSave}
-              key={`${activeTab}-${artist.name}`}
-            />
-          ))
+      {activeTab === 'saved' ? (
+        savedArtists.length > 0 ? (
+          <Cards artists={savedArtists} savedNames={savedNames} onToggleSave={toggleSave} />
         ) : (
           <div className="empty-state">
-            <h2>{activeTab === 'saved' ? '아직 저장한 DJ가 없어요.' : '아직 분석 결과가 없어요.'}</h2>
-            <p>
-              {activeTab === 'saved'
-                ? '마음에 드는 DJ 카드에서 Save를 눌러보세요.'
-                : '스크린샷을 올리거나 demo lineup을 먼저 실행해보세요.'}
-            </p>
+            <h2>아직 저장한 DJ가 없어요.</h2>
+            <p>마음에 드는 DJ 카드에서 Save를 눌러보세요.</p>
           </div>
-        )}
-      </section>
+        )
+      ) : (
+        <>
+          {confirmedArtists.length > 0 ? (
+            <section className="result-section">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">Confirmed DJs</p>
+                  <h2>음악 DB에서 확인된 후보</h2>
+                </div>
+                <span>{confirmedArtists.length} confirmed</span>
+              </div>
+              <Cards artists={confirmedArtists} savedNames={savedNames} onToggleSave={toggleSave} />
+            </section>
+          ) : null}
+
+          {reviewArtists.length > 0 ? (
+            <section className="result-section">
+              <div className="section-heading section-heading--review">
+                <div>
+                  <p className="eyebrow">Needs Review</p>
+                  <h2>가능성은 있지만 확인이 필요한 후보</h2>
+                </div>
+                <span>{reviewArtists.length} review</span>
+              </div>
+              <Cards artists={reviewArtists} savedNames={savedNames} onToggleSave={toggleSave} />
+            </section>
+          ) : null}
+
+          {rejectedCandidates.length > 0 ? (
+            <section className="rejected panel">
+              <h2>자동 제외된 OCR 후보</h2>
+              <p>아래 텍스트는 음악 DB 검증 점수가 낮아서 숨겼습니다.</p>
+              <div>
+                {rejectedCandidates.slice(0, 24).map((candidate) => (
+                  <span key={candidate}>{candidate}</span>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {confirmedArtists.length === 0 && reviewArtists.length === 0 ? (
+            <div className="empty-state">
+              <h2>아직 분석 결과가 없어요.</h2>
+              <p>스크린샷을 올리거나 demo lineup을 먼저 실행해보세요.</p>
+            </div>
+          ) : null}
+        </>
+      )}
     </main>
   );
 }

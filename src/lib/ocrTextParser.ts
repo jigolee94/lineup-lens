@@ -34,10 +34,16 @@ const BLOCKED_PATTERNS = [
   /entry/i,
   /gate/i,
   /club/i,
-  /arena/i
+  /arena/i,
+  /official/i,
+  /hosted by/i,
+  /powered by/i,
+  /early bird/i,
+  /limited/i,
+  /reservation/i
 ];
 
-function removeTimes(input: string): string {
+function removeTimesAndDates(input: string): string {
   return input
     .replace(/\b\d{1,2}[:.]\d{2}\s*(AM|PM)?\b/gi, ' ')
     .replace(/\b\d{1,2}\s*(AM|PM)\b/gi, ' ')
@@ -71,6 +77,8 @@ function likelyArtistChunk(chunk: string): boolean {
   if (looksBlocked(chunk)) return false;
   if (!/[A-Za-z]/.test(chunk)) return false;
   if (/^[^A-Za-z]*$/.test(chunk)) return false;
+  if (/^[+\-_=~*#\s]+$/.test(chunk)) return false;
+  if ((chunk.match(/[+_]/g) ?? []).length >= 2) return false;
 
   const words = chunk.split(/\s+/).filter(Boolean);
   if (words.length > 5) return false;
@@ -85,18 +93,19 @@ export function extractArtistsFromOcrText(text: string): ExtractedArtist[] {
   if (!text.trim()) return [];
 
   const cleanedChunks = splitIntoChunks(text)
-    .map((chunk) => removeTimes(chunk))
+    .map((chunk) => removeTimesAndDates(chunk))
     .map((chunk) => normalizeArtistName(chunk))
     .filter(Boolean)
     .filter(likelyArtistChunk);
 
-  const names = dedupeArtistNames(cleanedChunks).slice(0, 30);
+  const names = dedupeArtistNames(cleanedChunks).slice(0, 24);
 
   return names.map((name) => ({
     name,
     confidence: 0.72,
     rawTextMatch: name,
     stage: null,
-    time: null
+    time: null,
+    source: 'ocr'
   }));
 }

@@ -8,11 +8,20 @@ type DjCardProps = {
   onToggleSave: (artist: AnalyzedArtist) => void;
 };
 
+function sourceLabel(source: string): string {
+  if (source === 'musicbrainz') return 'MusicBrainz';
+  if (source === 'lastfm') return 'Last.fm';
+  if (source === 'manual') return 'Manual';
+  return 'Heuristic';
+}
+
 export function DjCard({ artist, isSaved, onToggleSave }: DjCardProps) {
   const confidencePercent = Math.round(artist.confidence * 100);
+  const verification = artist.verification;
+  const statusLabel = verification?.status === 'review' ? 'Needs review' : 'Confirmed';
 
   return (
-    <article className="dj-card">
+    <article className={verification?.status === 'review' ? 'dj-card dj-card--review' : 'dj-card'}>
       <div className="dj-card__top">
         <div>
           <p className="eyebrow">DJ / Artist</p>
@@ -24,10 +33,24 @@ export function DjCard({ artist, isSaved, onToggleSave }: DjCardProps) {
       </div>
 
       <div className="meta-row">
-        <span>{confidencePercent}% match</span>
+        <span>{confidencePercent}% OCR</span>
+        {verification ? <span>{verification.score}/100 DB score</span> : null}
         {artist.stage ? <span>{artist.stage}</span> : null}
         {artist.time ? <span>{artist.time}</span> : null}
       </div>
+
+      {verification ? (
+        <div className={verification.status === 'review' ? 'verification verification--review' : 'verification'}>
+          <div className="verification__top">
+            <strong>{statusLabel}</strong>
+            <span>{verification.sources.map(sourceLabel).join(' + ')}</span>
+          </div>
+          {verification.matchedName && verification.matchedName !== artist.name ? (
+            <p>Matched as: {verification.matchedName}</p>
+          ) : null}
+          {verification.reasons.length ? <p>{verification.reasons.slice(0, 2).join(' ')}</p> : null}
+        </div>
+      ) : null}
 
       {artist.profile.description ? <p className="description">{artist.profile.description}</p> : null}
 
