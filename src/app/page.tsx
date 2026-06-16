@@ -162,8 +162,8 @@ export default function HomePage() {
         <div className="hero__badge">Free OCR + music DB verification</div>
         <h1>Lineup Lens</h1>
         <p>
-          페스티벌 라인업 스크린샷을 올리면 <strong>무료 OCR</strong>로 텍스트를 읽고, MusicBrainz/Last.fm 검증 점수를
-          통과한 이름만 DJ 후보로 보여줍니다.
+          페스티벌 라인업 스크린샷을 올리면 <strong>무료 OCR</strong>로 텍스트를 읽고, 확실한 DJ와 가능성 있는 DJ 후보를
+          나눠서 보여줍니다.
         </p>
       </section>
 
@@ -172,7 +172,7 @@ export default function HomePage() {
           <input type="file" accept="image/*" onChange={handleFileChange} />
           <span className="upload-box__icon">＋</span>
           <strong>{selectedFile ? selectedFile.name : '라인업 스크린샷 선택'}</strong>
-          <small>OCR 후 음악 DB 검증을 거쳐 DJ 이름이 아닌 텍스트를 최대한 걸러냅니다.</small>
+          <small>OCR 후 이름처럼 보이는 후보는 최대한 살리고, 완전한 노이즈/시간/티켓 문구만 제외합니다.</small>
         </label>
 
         {previewUrl ? (
@@ -263,10 +263,10 @@ export default function HomePage() {
             <section className="result-section">
               <div className="section-heading section-heading--review">
                 <div>
-                  <p className="eyebrow">Needs Review</p>
-                  <h2>가능성은 있지만 확인이 필요한 후보</h2>
+                  <p className="eyebrow">Potential DJs</p>
+                  <h2>DB에는 없어도 이름처럼 보이는 후보</h2>
                 </div>
-                <span>{reviewArtists.length} review</span>
+                <span>{reviewArtists.length} potential</span>
               </div>
               <Cards artists={reviewArtists} savedNames={savedNames} onToggleSave={toggleSave} />
             </section>
@@ -275,7 +275,7 @@ export default function HomePage() {
           {rejectedCandidates.length > 0 ? (
             <section className="rejected panel">
               <h2>자동 제외된 OCR 후보</h2>
-              <p>아래 텍스트는 음악 DB 검증 점수가 낮아서 숨겼습니다.</p>
+              <p>아래 텍스트는 시간/티켓/스테이지/노이즈처럼 보여서 숨겼습니다.</p>
               <div>
                 {rejectedCandidates.slice(0, 24).map((candidate) => (
                   <span key={candidate}>{candidate}</span>

@@ -154,3 +154,22 @@ src/
 - `.env.local` 파일은 GitHub에 올리지 마세요.
 - MusicBrainz/Last.fm 검증은 완벽하지 않습니다. 로컬 DJ나 신인 DJ는 누락될 수 있습니다.
 - 그래서 `Needs Review`와 수동 입력 기능을 함께 둔 구조입니다.
+
+
+## Last.fm not found warnings
+
+Some OCR candidates are not real artist names. Last.fm may return messages like `The artist you supplied could not be found`.
+This version treats that as a normal validation miss and hides it from the user instead of showing it as an app error.
+
+
+## 2026 update: 더 완화된 DJ 분류
+
+이 버전은 이전처럼 `MusicBrainz/Last.fm에 없으면 탈락`시키지 않습니다.
+
+- DB에서 강하게 확인되면 `Confirmed DJs`
+- DB에는 없지만 이름처럼 보이면 `Potential DJs`
+- 시간, 티켓, 스테이지, 노이즈처럼 보이면 `자동 제외`
+
+로 나눕니다.
+
+언더그라운드/로컬 DJ는 음악 DB에 없을 수 있으므로 `Potential DJs`에 남겨두는 것이 더 안전합니다.

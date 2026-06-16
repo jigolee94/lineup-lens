@@ -175,9 +175,9 @@ export async function POST(request: Request) {
       const confirmedArtists = await buildAnalyzedArtists(verified.confirmed, warnings);
       const reviewArtists = await buildAnalyzedArtists(verified.review, warnings);
 
-      warnings.push('Free OCR ran in the browser. Candidates were filtered through MusicBrainz, plus Last.fm if configured.');
+      warnings.push('Free OCR ran in the browser. Strong database matches are Confirmed, and plausible OCR names are kept as Potential DJs.');
       if (!process.env.LASTFM_API_KEY) {
-        warnings.push('LASTFM_API_KEY is missing, so verification uses MusicBrainz only. Add Last.fm later for better filtering.');
+        warnings.push('LASTFM_API_KEY is missing. This is okay; MusicBrainz and OCR heuristics are still used.');
       }
 
       if (confirmedArtists.length > 0 || reviewArtists.length > 0) {
@@ -197,7 +197,7 @@ export async function POST(request: Request) {
           reviewArtists: [],
           rejectedCandidates: verified.rejectedCandidates,
           warnings: [
-            'OCR found text, but none of the candidates passed the music database verification filter.',
+            'OCR found text, but the parser only saw noise/date/stage-like text. Try a clearer image or paste DJ names manually.',
             ...warnings
           ]
         } satisfies AnalyzeLineupResponse,

@@ -54,6 +54,10 @@ function parseListeners(value: string | undefined): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
+function isLastFmArtistNotFound(error?: number, message?: string): boolean {
+  return error === 6 || /artist.*could not be found/i.test(message ?? '');
+}
+
 export async function searchLastFmArtist(
   artistName: string,
   warnings: string[]
@@ -73,7 +77,9 @@ export async function searchLastFmArtist(
     const data = (await response.json()) as LastFmArtistSearchResponse;
 
     if (!response.ok || data.error) {
-      warnings.push(data.message ?? `Last.fm artist search failed for ${artistName}.`);
+      if (!isLastFmArtistNotFound(data.error, data.message)) {
+        warnings.push(data.message ?? `Last.fm artist search failed for ${artistName}.`);
+      }
       return null;
     }
 
@@ -123,11 +129,15 @@ export async function getLastFmProfile(
     const infoData = (await infoResponse.json()) as LastFmArtistInfoResponse;
 
     if (!tagsResponse.ok || tagsData.error) {
-      warnings.push(tagsData.message ?? `Last.fm tags failed for ${artistName}.`);
+      if (!isLastFmArtistNotFound(tagsData.error, tagsData.message)) {
+        warnings.push(tagsData.message ?? `Last.fm tags failed for ${artistName}.`);
+      }
     }
 
     if (!infoResponse.ok || infoData.error) {
-      warnings.push(infoData.message ?? `Last.fm artist info failed for ${artistName}.`);
+      if (!isLastFmArtistNotFound(infoData.error, infoData.message)) {
+        warnings.push(infoData.message ?? `Last.fm artist info failed for ${artistName}.`);
+      }
     }
 
     const genres = (tagsData.toptags?.tag ?? [])

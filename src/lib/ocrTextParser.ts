@@ -98,7 +98,7 @@ export function extractArtistsFromOcrText(text: string): ExtractedArtist[] {
     .filter(Boolean)
     .filter(likelyArtistChunk);
 
-  const names = dedupeArtistNames(cleanedChunks).slice(0, 24);
+  const names = dedupeArtistNames(cleanedChunks).slice(0, 40);
 
   return names.map((name) => ({
     name,
